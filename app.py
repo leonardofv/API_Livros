@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import sqlite3
 
 app = Flask(__name__)
@@ -35,7 +35,7 @@ init_db()
 
 @app.route('/')
 def homepage():
-    return "<h3>Hello, my site using Flask</h3>"
+    return render_template('index.html')
 
 
 # Define uma rota '/doar' que aceita requisições do tipo POST
