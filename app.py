@@ -33,7 +33,6 @@ def init_db():
 init_db()
 
 
-
 @app.route('/')
 def homepage():
     return render_template('index.html')
