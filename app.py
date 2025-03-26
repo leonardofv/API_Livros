@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify, render_template
 import sqlite3
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)
 
 # Função que irá iniciar o banco de dados
 def init_db():
@@ -97,7 +98,6 @@ def listar():
 
 
 # rota para deletar
-
 @app.route('/deletar/<int:id>', methods=['DELETE'])
 def deletar_livro(id):
 
