@@ -79,41 +79,40 @@ def listar():
         return jsonify(livros_formatados)
 
 # Rota para deletar um livro e registrar o cliente
-@app.route('/deletar/<int:id>', methods=['DELETE'])
-def deletar_livro(id):
+@app.route('/deletar/<int:livro_id>', methods=['DELETE'])
+def deletar_livro(livro_id):
+
     dados = request.get_json()
     nome = dados.get('nome')
     cpf = dados.get('cpf')
 
+    #validação de nome e cpf do cliente
     if not all([nome, cpf]):
-        return jsonify({"erro": "Nome e CPF são obrigatórios"}), 400
+        return jsonify({"ERROR": "nome e cpf são obrigatórios"})
 
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
 
-        # Verifica se o livro existe
-        cursor.execute("SELECT titulo FROM livros WHERE id = ?", (id,))
+         #verificar se o livro existe e armazena o livro
+        cursor.execute("SELECT titulo FROM livros WHERE id == ?", (livro_id,))
         livro = cursor.fetchone()
 
         if not livro:
-            return jsonify({"erro": "Livro não encontrado"}), 404
+            return jsonify({"ERROR": "Livro não encontrado"})
 
-        livro_titulo = livro[0]
+        titulo_livro = livro[0]
 
-        # Registra o cliente na tabela 'clientes'
-        cursor.execute("""
-            INSERT INTO clientes (nome, cpf, livro_escolhido)
-            VALUES (?, ?, ?)
-        """, (nome, cpf, livro_titulo))
+        #inserir dados na tabela cliente antes de deletar o livro
+        cursor.execute("""INSERT INTO clientes (nome, cpf, livro_escolhido)
+                    VALUES (?,?,?)
+                    """,(nome, cpf, titulo_livro))
         conn.commit()
 
-        # Deleta o livro da tabela 'livros'
-        cursor.execute("DELETE FROM livros WHERE id = ?", (id,))
+        #após inserir os dados na tabela cliente, excluo o livro da tabela
+        cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
         conn.commit()
 
-        return jsonify({"mensagem": "Livro deletado com sucesso e cliente registrado!"}), 200
-
-
+    return jsonify({"menssagem": "Livro doado"}), 200
 
 
 if __name__ == "__main__":
