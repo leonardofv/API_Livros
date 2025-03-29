@@ -80,7 +80,7 @@ def listar():
 
 
 #rota clientes
-@app.route('/clientes', method=['GET'])
+@app.route('/clientes', methods=['GET'])
 def listar_clientes():
     with sqlite3.connect('database.db') as conn:
         
@@ -92,7 +92,8 @@ def listar_clientes():
             {
                 "id": cliente[0],
                 "nome": cliente[1],
-                "cpf": cliente[2]
+                "cpf": cliente[2],
+                "livro_escolhido": cliente[3]
             }
             for cliente in clientes
         ]
