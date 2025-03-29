@@ -78,6 +78,29 @@ def listar():
         ]
         return jsonify(livros_formatados)
 
+
+#rota clientes
+@app.route('/clientes', methods=['GET'])
+def listar_clientes():
+    with sqlite3.connect('database.db') as conn:
+        
+        cursor = conn.cursor()
+
+        clientes = cursor.execute("SELECT * FROM clientes").fetchall()
+
+        clientes_formatados = [
+            {
+                "id": cliente[0],
+                "nome": cliente[1],
+                "cpf": cliente[2],
+                "livro_escolhido": cliente[3]
+            }
+            for cliente in clientes
+        ]
+
+        return jsonify(clientes_formatados), 200
+
+
 # Rota para deletar um livro e registrar o cliente
 @app.route('/deletar/<int:livro_id>', methods=['DELETE'])
 def deletar_livro(livro_id):
