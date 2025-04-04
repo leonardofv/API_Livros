@@ -26,7 +26,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS clientes(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT NOT NULL,
-                cpf TEXT NOT NULL,
+                idade INTEGER NOT NULL,
                 livro_escolhido TEXT NOT NULL
             )
         """)
@@ -78,45 +78,38 @@ def listar():
         ]
         return jsonify(livros_formatados)
 
-
-#rota clientes
+# Rota para listar todos os clientes
 @app.route('/clientes', methods=['GET'])
 def listar_clientes():
     with sqlite3.connect('database.db') as conn:
-        
         cursor = conn.cursor()
-
         clientes = cursor.execute("SELECT * FROM clientes").fetchall()
-
         clientes_formatados = [
             {
                 "id": cliente[0],
                 "nome": cliente[1],
-                "cpf": cliente[2],
+                "idade": cliente[2],
                 "livro_escolhido": cliente[3]
             }
             for cliente in clientes
         ]
-
         return jsonify(clientes_formatados), 200
-
 
 # Rota para deletar um livro e registrar o cliente
 @app.route('/deletar/<int:livro_id>', methods=['DELETE'])
 def deletar_livro(livro_id):
-
     dados = request.get_json()
     nome = dados.get('nome')
-    cpf = dados.get('cpf')
+    idade = dados.get('idade')
 
-    #validação de nome e cpf do cliente
-    if not all([nome, cpf]):
-        return jsonify({"ERROR": "nome e cpf são obrigatórios"})
+    # Validação de nome e idade do cliente
+    if not all([nome, idade]):
+        return jsonify({"ERROR": "nome e idade são obrigatórios"})
 
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
 
-         #verificar se o livro existe e armazena o livro
+        # Verificar se o livro existe e armazenar o título do livro
         cursor.execute("SELECT titulo FROM livros WHERE id == ?", (livro_id,))
         livro = cursor.fetchone()
 
@@ -125,13 +118,14 @@ def deletar_livro(livro_id):
 
         titulo_livro = livro[0]
 
-        #inserir dados na tabela cliente antes de deletar o livro
-        cursor.execute("""INSERT INTO clientes (nome, cpf, livro_escolhido)
-                    VALUES (?,?,?)
-                    """,(nome, cpf, titulo_livro))
+        # Inserir dados na tabela cliente antes de deletar o livro
+        cursor.execute("""
+            INSERT INTO clientes (nome, idade, livro_escolhido)
+            VALUES (?, ?, ?)
+        """, (nome, idade, titulo_livro))
         conn.commit()
 
-        #após inserir os dados na tabela cliente, excluo o livro da tabela
+        # Após inserir os dados na tabela cliente, excluir o livro da tabela
         cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
         conn.commit()
 
