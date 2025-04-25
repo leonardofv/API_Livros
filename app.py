@@ -26,7 +26,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS clientes(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT NOT NULL,
-                idade INTEGER NOT NULL,
+                email TEXT NOT NULL,
                 livro_escolhido TEXT NOT NULL
             )
         """)
@@ -88,7 +88,7 @@ def listar_clientes():
             {
                 "id": cliente[0],
                 "nome": cliente[1],
-                "idade": cliente[2],
+                "email": cliente[2],
                 "livro_escolhido": cliente[3]
             }
             for cliente in clientes
@@ -100,37 +100,16 @@ def listar_clientes():
 def deletar_livro(livro_id):
     dados = request.get_json()
     nome = dados.get('nome')
-    idade = dados.get('idade')
+    email = dados.get('email')
 
-    # Validação de nome e idade do cliente
-    if not all([nome, idade]):
-        return jsonify({"ERROR": "nome e idade são obrigatórios"})
+    # Validação de nome e email do cliente
+    if not all([nome, email]):
+        return jsonify({"ERROR": "nome e email são obrigatórios"})
 
     with sqlite3.connect('database.db') as conn:
-        cursor = conn.cursor()
-
-        # Verificar se o livro existe e armazenar o título do livro
-        cursor.execute("SELECT titulo FROM livros WHERE id == ?", (livro_id,))
-        livro = cursor.fetchone()
-
-        if not livro:
-            return jsonify({"ERROR": "Livro não encontrado"})
-
-        titulo_livro = livro[0]
-
-        # Inserir dados na tabela cliente antes de deletar o livro
-        cursor.execute("""
-            INSERT INTO clientes (nome, idade, livro_escolhido)
-            VALUES (?, ?, ?)
-        """, (nome, idade, titulo_livro))
-        conn.commit()
-
-        # Após inserir os dados na tabela cliente, excluir o livro da tabela
-        cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
-        conn.commit()
-
-    return jsonify({"menssagem": "Livro doado"}), 200
+        cursor = conn.cursor
 
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     app.run(debug=True)
