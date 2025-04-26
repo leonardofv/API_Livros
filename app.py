@@ -98,18 +98,38 @@ def listar_clientes():
 # Rota para deletar um livro e registrar o cliente
 @app.route('/deletar/<int:livro_id>', methods=['DELETE'])
 def deletar_livro(livro_id):
+
     dados = request.get_json()
     nome = dados.get('nome')
     email = dados.get('email')
 
     # Validação de nome e email do cliente
     if not all([nome, email]):
-        return jsonify({"ERROR": "nome e email são obrigatórios"})
+        return jsonify({"ERROR": "nome e email são obrigatórios"}), 400
 
     with sqlite3.connect('database.db') as conn:
-        cursor = conn.cursor
+        cursor = conn.cursor()
 
+        # verifica se o livro existe e armazena seu titulo
+        cursor.execute("SELECT titulo FROM livros WHERE id == ?", (livro_id,))
+        livro = cursor.fetchone()
 
+        if not livro:
+            return jsonify({"ERROR": "Livro não encontrado"}), 404
+        
+        titulo_livro = livro[0]
+
+        cursor.execute("""
+                INSERT INTO clientes (nome, email, livro_escolhido)
+                VALUES (?, ?, ?)
+            """, (nome, email, titulo_livro))
+        conn.commit()
+
+        #Após inserir os dados do cliente na tabela, excluir o livro escolhido da tabela livros
+        cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
+        conn.commit()
+
+    return jsonify({"menssagem": "Livro doado"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
