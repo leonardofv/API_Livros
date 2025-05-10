@@ -17,8 +17,18 @@ def init_db():
                 titulo TEXT NOT NULL,
                 categoria TEXT NOT NULL,
                 autor TEXT NOT NULL,
-                imagem_url TEXT NOT NULL
+                imagem_url TEXT NOT NULL,
+                doador TEXT NOT NULL
             )
+        """)
+
+        # tabela doadores
+        cursor.execute("""
+                CREATE TABLE IF NOT EXISTS doadores(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome TEXT NOT NULL,
+                    livro_doado TEXT NOT NULL
+                )
         """)
 
         # Criação da tabela 'clientes'
@@ -47,16 +57,24 @@ def doar():
     categoria = dados.get('categoria')
     autor = dados.get('autor')
     imagem_url = dados.get('imagem_url')
+    doador = dados.get('doador')
 
-    if not all([titulo, categoria, autor, imagem_url]):
+    if not all([titulo, categoria, autor, imagem_url, doador]):
         return jsonify({"erro": "Todos os campos são obrigatórios"}), 400
 
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO livros (titulo, categoria, autor, imagem_url)
-            VALUES (?, ?, ?, ?)
-        """, (titulo, categoria, autor, imagem_url))
+            INSERT INTO livros (titulo, categoria, autor, imagem_url, doador)
+            VALUES (?, ?, ?, ?, ?)
+        """, (titulo, categoria, autor, imagem_url, doador))
+
+        # Inserir o doador na tabela 'doadores'
+        cursor.execute("""
+            INSERT INTO doadores (nome, livro_doado)
+            VALUES (?, ?)
+        """, (doador, titulo))
+
         conn.commit()
 
         return jsonify({"mensagem": "Livro cadastrado com sucesso"}), 201
@@ -77,6 +95,24 @@ def listar():
             for livro in livros
         ]
         return jsonify(livros_formatados)
+
+
+#Rota para listar doadores
+@app.route('/doadores', methods=['GET'])
+def listar_doadores():
+    with sqlite3.connect('database.db') as conn:
+        cursor = conn.cursor()
+        doadores = cursor.execute("SELECT * FROM doadores").fetchall()  # Corrigido o nome da tabela
+        doadores_formatados = [
+            {
+                "id": doador[0], 
+                "nome": doador[1],
+                "livro_doado": doador[2]
+            }
+            for doador in doadores
+        ]
+        return jsonify(doadores_formatados), 200
+
 
 # Rota para listar todos os clientes
 @app.route('/clientes', methods=['GET'])
