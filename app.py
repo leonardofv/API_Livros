@@ -18,8 +18,7 @@ def init_db():
                 categoria TEXT NOT NULL,
                 autor TEXT NOT NULL,
                 imagem_url TEXT NOT NULL,
-                doador_id INTEGER NOT NULL,
-                FOREIGN KEY(doador_id) REFERENCES doadores(id)
+                doador TEXT NOT NULL
             )
         """)
 
@@ -38,8 +37,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT NOT NULL,
                 email TEXT NOT NULL,
-                livro_id INTEGER NOT NULL,
-                FOREIGN KEY(livro_id) REFERENCES livros(id)
+                livro_escolhido TEXT NOT NULL
             )
         """)
 
@@ -66,21 +64,20 @@ def doar():
 
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
-
-        # Inserir doador e obter o ID
-        cursor.execute("INSERT INTO doadores (nome, livro_doado) VALUES (?, ?)", (doador, titulo))
-        doador_id = cursor.lastrowid
-
-        # Inserir livro com chave estrangeira
         cursor.execute("""
-            INSERT INTO livros (titulo, categoria, autor, imagem_url, doador_id)
+            INSERT INTO livros (titulo, categoria, autor, imagem_url, doador)
             VALUES (?, ?, ?, ?, ?)
-        """, (titulo, categoria, autor, imagem_url, doador_id))
+        """, (titulo, categoria, autor, imagem_url, doador))
+
+        # Inserir o doador na tabela 'doadores'
+        cursor.execute("""
+            INSERT INTO doadores (nome, livro_doado)
+            VALUES (?, ?)
+        """, (doador, titulo))
 
         conn.commit()
 
-    return jsonify({"mensagem": "Livro cadastrado com sucesso"}), 201
-
+        return jsonify({"mensagem": "Livro cadastrado com sucesso"}), 201
 
 # Rota para listar todos os livros
 @app.route('/livros', methods=['GET'])
@@ -137,35 +134,38 @@ def listar_clientes():
 # Rota para deletar um livro e registrar o cliente
 @app.route('/deletar/<int:livro_id>', methods=['DELETE'])
 def deletar_livro(livro_id):
+
     dados = request.get_json()
     nome = dados.get('nome')
     email = dados.get('email')
 
+    # Validação de nome e email do cliente
     if not all([nome, email]):
         return jsonify({"ERROR": "nome e email são obrigatórios"}), 400
 
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
 
-        # Verifica se o livro existe
-        cursor.execute("SELECT id FROM livros WHERE id = ?", (livro_id,))
+        # verifica se o livro existe e armazena seu titulo
+        cursor.execute("SELECT titulo FROM livros WHERE id == ?", (livro_id,))
         livro = cursor.fetchone()
 
         if not livro:
             return jsonify({"ERROR": "Livro não encontrado"}), 404
+        
+        titulo_livro = livro[0]
 
-        # Inserir cliente com livro_id
         cursor.execute("""
-            INSERT INTO clientes (nome, email, livro_id)
-            VALUES (?, ?, ?)
-        """, (nome, email, livro_id))
+                INSERT INTO clientes (nome, email, livro_escolhido)
+                VALUES (?, ?, ?)
+            """, (nome, email, titulo_livro))
+        conn.commit()
 
-        # Excluir o livro do acervo
+        #Após inserir os dados do cliente na tabela, excluir o livro escolhido da tabela livros
         cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
         conn.commit()
 
-    return jsonify({"mensagem": "Livro doado"}), 200
-
+    return jsonify({"menssagem": "Livro doado"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
