@@ -10,7 +10,7 @@ def init_db():
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
 
-        # Criação da tabela 'livros'
+        # Tabela de livros disponíveis
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS livros(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,22 +22,38 @@ def init_db():
             )
         """)
 
-        # tabela doadores
+        # Tabela de livros doados
         cursor.execute("""
-                CREATE TABLE IF NOT EXISTS doadores(
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nome TEXT NOT NULL,
-                    livro_doado TEXT NOT NULL
-                )
+            CREATE TABLE IF NOT EXISTS livros_doados(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                titulo TEXT NOT NULL,
+                categoria TEXT NOT NULL,
+                autor TEXT NOT NULL,
+                imagem_url TEXT NOT NULL,
+                doador TEXT NOT NULL,
+                cliente_nome TEXT NOT NULL,
+                cliente_email TEXT NOT NULL
+            )
         """)
 
-        # Criação da tabela 'clientes'
+        # Tabela doadores
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS doadores(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                livro_doado INTEGER NOT NULL,
+                FOREIGN KEY (livro_doado) REFERENCES livros(id)
+            )
+        """)
+
+        # Tabela clientes
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clientes(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT NOT NULL,
                 email TEXT NOT NULL,
-                livro_escolhido TEXT NOT NULL
+                livro_escolhido INTEGER NOT NULL,
+                FOREIGN KEY (livro_escolhido) REFERENCES livros(id)
             )
         """)
 
@@ -68,12 +84,13 @@ def doar():
             INSERT INTO livros (titulo, categoria, autor, imagem_url, doador)
             VALUES (?, ?, ?, ?, ?)
         """, (titulo, categoria, autor, imagem_url, doador))
+        livro_id = cursor.lastrowid #id do livro inserido
 
         # Inserir o doador na tabela 'doadores'
         cursor.execute("""
             INSERT INTO doadores (nome, livro_doado)
             VALUES (?, ?)
-        """, (doador, titulo))
+        """, (doador, livro_id))
 
         conn.commit()
 
@@ -96,13 +113,35 @@ def listar():
         ]
         return jsonify(livros_formatados)
 
+#Rota para listar livros doados
+@app.route('/doados', methods=['GET'])
+def listar_livros_doados():
+    with sqlite3.connect('database.db') as conn:
+        livros_doados = conn.execute("SELECT * FROM livros_doados").fetchall()
+        livros_formatados = [
+            {
+            "id": livro[0],
+                "titulo": livro[1],
+                "categoria": livro[2],
+                "autor": livro[3],
+                "imagem_url": livro[4],
+                "doador": livro[5],
+                "cliente_nome": livro[6],
+                "cliente_email": livro[7]
+            }
+            for livro in livros_doados
+        ]
+        return jsonify(livros_formatados), 200
+
+
 
 #Rota para listar doadores
 @app.route('/doadores', methods=['GET'])
 def listar_doadores():
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
-        doadores = cursor.execute("SELECT * FROM doadores").fetchall()  # Corrigido o nome da tabela
+        doadores = cursor.execute("SELECT doadores.id, doadores.nome, livros.titulo FROM doadores JOIN livros ON doadores.livro_doado = livros.id" 
+        "").fetchall() 
         doadores_formatados = [
             {
                 "id": doador[0], 
@@ -119,7 +158,12 @@ def listar_doadores():
 def listar_clientes():
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
-        clientes = cursor.execute("SELECT * FROM clientes").fetchall()
+        # JOIN para trazer nome, email do cliente e título do livro escolhido
+        clientes = cursor.execute("""
+            SELECT clientes.id, clientes.nome, clientes.email, livros_doados.titulo
+            FROM clientes
+            LEFT JOIN livros_doados ON clientes.livro_escolhido = livros_doados.id
+        """).fetchall()
         clientes_formatados = [
             {
                 "id": cliente[0],
@@ -134,35 +178,38 @@ def listar_clientes():
 # Rota para deletar um livro e registrar o cliente
 @app.route('/deletar/<int:livro_id>', methods=['DELETE'])
 def deletar_livro(livro_id):
-
     dados = request.get_json()
     nome = dados.get('nome')
     email = dados.get('email')
 
-    # Validação de nome e email do cliente
     if not all([nome, email]):
         return jsonify({"ERROR": "nome e email são obrigatórios"}), 400
 
     with sqlite3.connect('database.db') as conn:
         cursor = conn.cursor()
 
-        # verifica se o livro existe e armazena seu titulo
-        cursor.execute("SELECT titulo FROM livros WHERE id == ?", (livro_id,))
+        # Busca o livro a ser doado
+        cursor.execute("SELECT * FROM livros WHERE id = ?", (livro_id,))
         livro = cursor.fetchone()
 
         if not livro:
             return jsonify({"ERROR": "Livro não encontrado"}), 404
-        
-        titulo_livro = livro[0]
 
+        # Insere o cliente
         cursor.execute("""
-                INSERT INTO clientes (nome, email, livro_escolhido)
-                VALUES (?, ?, ?)
-            """, (nome, email, titulo_livro))
-        conn.commit()
+            INSERT INTO clientes (nome, email, livro_escolhido)
+            VALUES (?, ?, ?)
+        """, (nome, email, livro_id))
 
-        #Após inserir os dados do cliente na tabela, excluir o livro escolhido da tabela livros
+        # Insere o livro na tabela livros_doados, junto com os dados do cliente
+        cursor.execute("""
+            INSERT INTO livros_doados (titulo, categoria, autor, imagem_url, doador, cliente_nome, cliente_email)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (livro[1], livro[2], livro[3], livro[4], livro[5], nome, email))
+
+        # Remove o livro da tabela livros
         cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
+
         conn.commit()
 
     return jsonify({"menssagem": "Livro doado"}), 200
